@@ -33,6 +33,7 @@
     <property name="title">
      <string>File</string>
     </property>
+    <addaction name="actionImportDXCC"/>
     <addaction name="actionExit"/>
    </widget>
    <widget class="QMenu" name="menuSettings">
@@ -44,6 +45,11 @@
    <addaction name="menuFile"/>
    <addaction name="menuSettings"/>
   </widget>
+  <action name="actionImportDXCC">
+   <property name="text">
+    <string>Import DXCC...</string>
+   </property>
+  </action>
   <action name="actionExit">
    <property name="text">
     <string>Exit</string>
