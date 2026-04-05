@@ -24,6 +24,9 @@ class MainWindow(QMainWindow):
         self.ui.actionImportDXCC.triggered.connect(
             self.on_import_dxcc_requested
         )
+        self.ui.actionViewCountries.triggered.connect(
+            self.on_view_countries_requested
+        )
 
     def on_init_db_requested(self):
         """Handle Initialize database action."""
@@ -67,3 +70,11 @@ class MainWindow(QMainWindow):
                 "Import Failed",
                 f"Error importing DXCC data:\n{str(e)}",
             )
+
+    def on_view_countries_requested(self):
+        """Handle View > Countries action."""
+        from mjlog.gui.windows.countries_window import CountriesWindow
+
+        child_window = CountriesWindow(self.ui.mdiArea)
+        self.ui.mdiArea.addSubWindow(child_window)
+        child_window.show()
