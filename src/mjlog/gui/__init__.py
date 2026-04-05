@@ -1,0 +1,1 @@
+"""MJlog GUI module."""
