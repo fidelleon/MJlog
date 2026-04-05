@@ -11,3 +11,6 @@ wheels/
 
 # Qt Designer generated Python files (auto-generated from .ui files)
 src/mjlog/gui/ui/*_ui.py
+
+# User files
+mjlog.toml
