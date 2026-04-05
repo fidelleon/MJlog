@@ -95,15 +95,6 @@ class CountriesWindow(QWidget):
         """Load window geometry and dropdown states from saved state."""
         state = load_window_state(self.WINDOW_NAME)
 
-        # Restore window geometry
-        if "geometry" in state:
-            geom = state["geometry"]
-            self.setGeometry(
-                geom["x"], geom["y"], geom["width"], geom["height"]
-            )
-        else:
-            self.setGeometry(0, 0, 900, 600)
-
         # Restore dropdown selections
         special_use_index = state.get("special_use_index", 0)
         deleted_index = state.get("deleted_index", 0)
@@ -117,6 +108,33 @@ class CountriesWindow(QWidget):
                 self.table.setColumnWidth(int(col_idx), width)
             except (ValueError, IndexError):
                 pass
+
+        # Store geometry for later use after window is added to MDI area
+        self.saved_geometry = state.get("geometry", None)
+
+    def show(self) -> None:
+        """Override show to apply geometry after window is added to MDI."""
+        super().show()
+
+        # Now that the window is added to MDI area, we can access its subwindow
+        # and apply the saved geometry
+        if hasattr(self, "saved_geometry") and self.saved_geometry:
+            # Get the QMdiSubWindow wrapper
+            sub_window = self.parent()
+            if sub_window is not None:
+                geom = self.saved_geometry
+                sub_window.setGeometry(
+                    geom["x"], geom["y"],
+                    geom["width"], geom["height"]
+                )
+        else:
+            # Set default geometry if no saved state
+            sub_window = self.parent()
+            if sub_window is not None:
+                sub_window.setGeometry(0, 0, 900, 600)
+            else:
+                # Fallback if not in MDI area yet
+                self.setGeometry(0, 0, 900, 600)
 
     def apply_filters(self) -> None:
         """Filter table based on dropdown selections."""
@@ -180,7 +198,13 @@ class CountriesWindow(QWidget):
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Save window state before closing."""
-        geometry = self.geometry()
+        # Get the QMdiSubWindow wrapper to get actual position
+        sub_window = self.parent()
+        if sub_window is not None:
+            geometry = sub_window.geometry()
+        else:
+            geometry = self.geometry()
+
         state = {
             "geometry": {
                 "x": geometry.x(),
