@@ -2,7 +2,7 @@
 
 from PySide6.QtWidgets import (
     QWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QHBoxLayout,
-    QCheckBox
+    QComboBox, QLabel
 )
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QCloseEvent
@@ -21,7 +21,6 @@ class CountriesWindow(QWidget):
         super().__init__()
         self.mdi_area = mdi_area
         self.setWindowTitle("DXCC Countries")
-        self.setGeometry(0, 0, 900, 600)
 
         self.all_entities = []
 
@@ -30,15 +29,19 @@ class CountriesWindow(QWidget):
         # Create filter controls
         filter_layout = QHBoxLayout()
 
-        # special_use filter
-        self.check_special_use = QCheckBox("Show Special Use")
-        self.check_special_use.stateChanged.connect(self.apply_filters)
-        filter_layout.addWidget(self.check_special_use)
+        # Special Use dropdown
+        filter_layout.addWidget(QLabel("Special Use:"))
+        self.combo_special_use = QComboBox()
+        self.combo_special_use.addItems(["All", "Regular", "Special use"])
+        self.combo_special_use.currentIndexChanged.connect(self.apply_filters)
+        filter_layout.addWidget(self.combo_special_use)
 
-        # deleted filter
-        self.check_deleted = QCheckBox("Show Deleted")
-        self.check_deleted.stateChanged.connect(self.apply_filters)
-        filter_layout.addWidget(self.check_deleted)
+        # Deleted dropdown
+        filter_layout.addWidget(QLabel("Deleted:"))
+        self.combo_deleted = QComboBox()
+        self.combo_deleted.addItems(["All", "No", "Yes"])
+        self.combo_deleted.currentIndexChanged.connect(self.apply_filters)
+        filter_layout.addWidget(self.combo_deleted)
 
         filter_layout.addStretch()
         main_layout.addLayout(filter_layout)
@@ -89,14 +92,23 @@ class CountriesWindow(QWidget):
         main_layout.addWidget(self.table)
 
     def load_state(self) -> None:
-        """Load checkboxes and column widths from saved state."""
+        """Load window geometry and dropdown states from saved state."""
         state = load_window_state(self.WINDOW_NAME)
 
-        # Restore checkbox states
-        show_special_use = state.get("show_special_use", True)
-        show_deleted = state.get("show_deleted", False)
-        self.check_special_use.setChecked(show_special_use)
-        self.check_deleted.setChecked(show_deleted)
+        # Restore window geometry
+        if "geometry" in state:
+            geom = state["geometry"]
+            self.setGeometry(
+                geom["x"], geom["y"], geom["width"], geom["height"]
+            )
+        else:
+            self.setGeometry(0, 0, 900, 600)
+
+        # Restore dropdown selections
+        special_use_index = state.get("special_use_index", 0)
+        deleted_index = state.get("deleted_index", 0)
+        self.combo_special_use.setCurrentIndex(special_use_index)
+        self.combo_deleted.setCurrentIndex(deleted_index)
 
         # Restore column widths
         column_widths = state.get("column_widths", {})
@@ -106,28 +118,32 @@ class CountriesWindow(QWidget):
             except (ValueError, IndexError):
                 pass
 
-    def closeEvent(self, event: QCloseEvent) -> None:
-        """Save window state before closing."""
-        state = {
-            "show_special_use": self.check_special_use.isChecked(),
-            "show_deleted": self.check_deleted.isChecked(),
-            "column_widths": {
-                str(i): self.table.columnWidth(i)
-                for i in range(self.table.columnCount())
-            },
-        }
-        save_window_state(self.WINDOW_NAME, state)
-        super().closeEvent(event)
+    def apply_filters(self) -> None:
+        """Filter table based on dropdown selections."""
+        special_use_index = self.combo_special_use.currentIndex()
+        deleted_index = self.combo_deleted.currentIndex()
 
-    def apply_filters(self):
-        """Filter table based on checkbox selections."""
-        show_special_use = self.check_special_use.isChecked()
-        show_deleted = self.check_deleted.isChecked()
+        # Filter by special_use
+        if special_use_index == 0:  # All
+            special_use_filter = None
+        elif special_use_index == 1:  # Regular
+            special_use_filter = False
+        else:  # Special use
+            special_use_filter = True
+
+        # Filter by deleted
+        if deleted_index == 0:  # All
+            deleted_filter = None
+        elif deleted_index == 1:  # No
+            deleted_filter = False
+        else:  # Yes
+            deleted_filter = True
 
         filtered_entities = [
             e for e in self.all_entities
-            if (show_special_use or not e.special_use) and
-            (show_deleted or not e.deleted)
+            if (special_use_filter is None or
+                e.special_use == special_use_filter) and
+            (deleted_filter is None or e.deleted == deleted_filter)
         ]
 
         self.table.setRowCount(len(filtered_entities))
@@ -154,3 +170,23 @@ class CountriesWindow(QWidget):
                     table_item.flags() & ~Qt.ItemIsEditable
                 )
                 self.table.setItem(row, col, table_item)
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Save window state before closing."""
+        geometry = self.geometry()
+        state = {
+            "geometry": {
+                "x": geometry.x(),
+                "y": geometry.y(),
+                "width": geometry.width(),
+                "height": geometry.height(),
+            },
+            "special_use_index": self.combo_special_use.currentIndex(),
+            "deleted_index": self.combo_deleted.currentIndex(),
+            "column_widths": {
+                str(i): self.table.columnWidth(i)
+                for i in range(self.table.columnCount())
+            },
+        }
+        save_window_state(self.WINDOW_NAME, state)
+        super().closeEvent(event)
