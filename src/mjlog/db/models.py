@@ -5,6 +5,7 @@ from sqlalchemy import (
     Column,
     Date,
     Float,
+    ForeignKey,
     Integer,
     Numeric,
     String,
@@ -92,3 +93,36 @@ class Band(Base):
         return (
             f"<Band(id={self.id}, band='{self.band}', enabled='{self.enabled}')>"
         )
+
+
+class Mode(Base):
+    """Radio mode record.
+
+    Represents ham radio transmission modes such as FM, CW, SSB, FT8, etc.
+    Data source: external_data/modes.csv
+    """
+
+    __tablename__ = "modes"
+
+    mode = Column(String(20), primary_key=True, nullable=False, index=True, unique=True)
+    submode = Column(String(50), nullable=True)
+
+    def __repr__(self):
+        return f"<Mode(mode='{self.mode}', submode='{self.submode}')>"
+
+
+class Submode(Base):
+    """Submode record linked to a Mode.
+
+    Represents specific submodes associated with a radio transmission mode.
+    Each submode record must reference a valid Mode.
+    """
+
+    __tablename__ = "submodes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    mode = Column(String(20), ForeignKey('modes.mode'), nullable=False, index=True)
+    submode = Column(String(50), nullable=False)
+
+    def __repr__(self):
+        return f"<Submode(mode='{self.mode}', submode='{self.submode}')>"
