@@ -1,9 +1,7 @@
 import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 from PySide6.QtWidgets import QApplication  # noqa: E402
+
 from mjlog.gui.main_window import MainWindow  # noqa: E402
 
 
