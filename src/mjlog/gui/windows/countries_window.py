@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QHBoxLayout,
     QComboBox, QLabel
 )
-from PySide6.QtCore import Qt, QEvent, QObject, QTimer
+from PySide6.QtCore import Qt, QEvent, QObject
 from PySide6.QtGui import QCloseEvent
 
 from mjlog.db.session import get_session
@@ -13,15 +13,15 @@ from mjlog.gui.settings import load_window_state, save_window_state
 
 
 class _SubWindowEventFilter(QObject):
-    """Event filter installed on the QMdiSubWindow to track move/resize."""
+    """Event filter on QMdiSubWindow: saves geometry on mouse release."""
 
-    def __init__(self, on_geometry_changed):
+    def __init__(self, on_released):
         super().__init__()
-        self._on_geometry_changed = on_geometry_changed
+        self._on_released = on_released
 
     def eventFilter(self, watched, event) -> bool:
-        if event.type() in (QEvent.Type.Move, QEvent.Type.Resize):
-            self._on_geometry_changed(watched.geometry())
+        if event.type() == QEvent.Type.NonClientAreaMouseButtonRelease:
+            self._on_released(watched.geometry())
         return False  # never consume the event
 
 
@@ -39,13 +39,6 @@ class CountriesWindow(QWidget):
         self._mdi_sub_window = None
         self._sub_window_event_filter = None
         self._current_geometry = None
-
-        # Debounce timer: saves state 400ms after the last move/resize event
-        self._save_timer = QTimer(self)
-        self._save_timer.setSingleShot(True)
-        self._save_timer.setInterval(400)
-        self._save_timer.timeout.connect(self.save_state)
-
         main_layout = QVBoxLayout(self)
 
         # Create filter controls
@@ -135,24 +128,28 @@ class CountriesWindow(QWidget):
         self.saved_geometry = state.get("geometry", None)
 
     def _on_subwindow_geometry_changed(self, geometry) -> None:
-        """Called on every move/resize; restarts the debounce save timer."""
+        """Called when user releases mouse after dragging/resizing."""
         self._current_geometry = {
             "x": geometry.x(),
             "y": geometry.y(),
             "width": geometry.width(),
             "height": geometry.height(),
         }
-        # Restart the debounce timer — save fires 400ms after last event
-        self._save_timer.start()
+        self.save_state()
 
     def show(self) -> None:
         """Override show to apply geometry and install event filter."""
         super().show()
 
-        self._mdi_sub_window = self.parent()
+        # Find our QMdiSubWindow via the MDI area (more reliable than parent())
+        self._mdi_sub_window = None
+        for sw in self.mdi_area.subWindowList():
+            if sw.widget() is self:
+                self._mdi_sub_window = sw
+                break
 
         if self._mdi_sub_window is not None:
-            # Install event filter to track move/resize in real time
+            # Install event filter to catch mouse release after drag/resize
             self._sub_window_event_filter = _SubWindowEventFilter(
                 self._on_subwindow_geometry_changed
             )
@@ -250,7 +247,6 @@ class CountriesWindow(QWidget):
         save_window_state(self.WINDOW_NAME, state)
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        """Stop the debounce timer and save state before closing."""
-        self._save_timer.stop()
+        """Save state before closing."""
         self.save_state()
         super().closeEvent(event)
