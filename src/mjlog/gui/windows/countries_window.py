@@ -116,24 +116,20 @@ class CountriesWindow(QWidget):
         """Override show to apply geometry after window is added to MDI."""
         super().show()
 
-        # Now that the window is added to MDI area, we can access its subwindow
-        # and apply the saved geometry
+        # Store a direct reference to the QMdiSubWindow for use in save_state
+        self._mdi_sub_window = self.parent()
+
         if hasattr(self, "saved_geometry") and self.saved_geometry:
-            # Get the QMdiSubWindow wrapper
-            sub_window = self.parent()
-            if sub_window is not None:
+            if self._mdi_sub_window is not None:
                 geom = self.saved_geometry
-                sub_window.setGeometry(
+                self._mdi_sub_window.setGeometry(
                     geom["x"], geom["y"],
                     geom["width"], geom["height"]
                 )
         else:
-            # Set default geometry if no saved state
-            sub_window = self.parent()
-            if sub_window is not None:
-                sub_window.setGeometry(0, 0, 900, 600)
+            if self._mdi_sub_window is not None:
+                self._mdi_sub_window.setGeometry(0, 0, 900, 600)
             else:
-                # Fallback if not in MDI area yet
                 self.setGeometry(0, 0, 900, 600)
 
     def apply_filters(self) -> None:
@@ -198,8 +194,9 @@ class CountriesWindow(QWidget):
 
     def save_state(self) -> None:
         """Save window geometry and UI state to persistent settings."""
-        # Get the QMdiSubWindow wrapper to get actual position
-        sub_window = self.parent()
+        # Use the stored QMdiSubWindow reference (set in show()) for reliable
+        # geometry — self.parent() may be unreliable during app teardown
+        sub_window = getattr(self, "_mdi_sub_window", None) or self.parent()
         if sub_window is not None:
             geometry = sub_window.geometry()
         else:
