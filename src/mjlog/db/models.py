@@ -6,6 +6,7 @@ from sqlalchemy import (
     Date,
     Float,
     Integer,
+    Numeric,
     String,
     UniqueConstraint,
 )
@@ -70,3 +71,24 @@ class InternetImportation(Base):
             f"import_date='{self.import_date}')>"
         )
 
+
+class Band(Base):
+    """Band configuration record."""
+
+    __tablename__ = "bands"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    band = Column(String, nullable=True)
+    enabled = Column(String, nullable=True)
+    minfreqr1 = Column(Numeric, nullable=True)
+    maxfreqr1 = Column(Numeric, nullable=True)
+    minfreqr2 = Column(Numeric, nullable=True)
+    maxfreqr2 = Column(Numeric, nullable=True)
+    minfreqr3 = Column(Numeric, nullable=True)
+    maxfreqr3 = Column(Numeric, nullable=True)
+    sat_mode = Column(String, nullable=True)
+
+    def __repr__(self):
+        return (
+            f"<Band(id={self.id}, band='{self.band}', enabled='{self.enabled}')>"
+        )
