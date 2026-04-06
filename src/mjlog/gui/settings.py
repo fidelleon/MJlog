@@ -46,5 +46,4 @@ def save_window_state(window_name: str, state: dict[str, Any]) -> None:
 
     # Write back
     with open(settings_file, "wb") as f:
-        print(data)
         tomli_w.dump(data, f)
