@@ -4,7 +4,6 @@ import zipfile
 import xml.etree.ElementTree as ET
 
 from mjlog.db.models import DXCCEntity
-from mjlog.db.session import get_session
 
 NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 
@@ -18,7 +17,7 @@ def col_letter_to_num(col_letter):
 
 
 def load_dxcc_from_xlsx(xlsx_path: str):
-    """Load DXCC entities from Excel file.
+    """Load DXCC entities from Excel file for updating existing entities.
 
     Args:
         xlsx_path: Path to DXCC.xlsx file
@@ -120,37 +119,3 @@ def load_dxcc_from_xlsx(xlsx_path: str):
         raise
 
     return entities
-
-
-def import_dxcc_to_db(xlsx_path: str) -> int:
-    """Import DXCC entities from Excel file into database.
-
-    Args:
-        xlsx_path: Path to DXCC.xlsx file
-
-    Returns:
-        Number of entities imported
-    """
-    entities = load_dxcc_from_xlsx(xlsx_path)
-    session = get_session()
-
-    try:
-        # Check for existing data
-        existing_count = session.query(DXCCEntity).count()
-        if existing_count > 0:
-            msg = f"Database already has {existing_count} DXCC entities"
-            print(msg)
-            return 0
-
-        # Add all entities
-        session.add_all(entities)
-        session.commit()
-        print(f"Imported {len(entities)} DXCC entities")
-        return len(entities)
-
-    except Exception as e:
-        session.rollback()
-        print(f"Error importing data: {e}")
-        raise
-    finally:
-        session.close()
