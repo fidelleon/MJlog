@@ -13,15 +13,26 @@ from mjlog.gui.settings import load_window_state, save_window_state
 
 
 class _SubWindowEventFilter(QObject):
-    """Event filter on QMdiSubWindow: saves geometry on mouse release."""
+    """Event filter on QMdiSubWindow: saves geometry on window position/size changes."""
 
     def __init__(self, on_released):
         super().__init__()
         self._on_released = on_released
+        self._last_geometry = None
 
     def eventFilter(self, watched, event) -> bool:
-        if event.type() == QEvent.Type.NonClientAreaMouseButtonRelease:
-            self._on_released(watched.geometry())
+        # Trigger on Move event (position change) or ResizeEnd-like events
+        if event.type() == QEvent.Type.Move:
+            current = watched.geometry()
+            # Only trigger if geometry actually changed
+            if self._last_geometry is None or (
+                current.x() != self._last_geometry.x() or
+                current.y() != self._last_geometry.y() or
+                current.width() != self._last_geometry.width() or
+                current.height() != self._last_geometry.height()
+            ):
+                self._last_geometry = current
+                self._on_released(current)
         return False  # never consume the event
 
 
