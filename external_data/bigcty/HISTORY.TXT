@@ -1,0 +1,34 @@
+    Big CTY - 4 April 2026
+    Version entity is Uganda, 5X
+
+    Added/changed Entities/Prefixes/Callsigns:
+
+	* EA6URP/2 and EA6URP/4 are both Spain, EA
+	* GB0VLY is Wales, GW
+	* KL4GK, KL7GIC and WL7CSX are all United States, K in CQ zone 3, ITU zone 6
+	* AH6WC, KL0CK and WP4PPF are all United States, K in CQ zone 4, ITU zone 7
+	* NP3Q is United States, K in CQ zone 4, ITU zone 8
+	* KB8V, KL0D, KL3DY, KL4EQ, KL4RL, NP3VG and NP4RT are all United States, K in CQ zone 5, ITU zone 8
+	* KM7BKK is Hawaii, KH6
+	* KK7JVV, KM4ZBQ, KO6KVZ and KR4KUD are all Alaska, KL
+	* K8EME and KE4WBS are both Puerto Rico, KP4
+	* LU1VMM/V, LU4VEW/V, LU5VDM/V and LU5VJM/V are all Argentina, LU in ITU zone 16
+	* R8XF/M is in ITU zone 20, not ITU zone 19
+	* R8XF/P is in ITU zone 20, not ITU zone 29
+	* R8XF/M and R8XF/P are both in CQ zone 17, not CQ zone 16
+	* RJ2T/P is European Russia, UA
+	* RG65KO is European Russia, UA in CQ zone 17, ITU zone 20
+	* UA9JKM/M is in ITU zone 30, not ITU zone 20
+	* RG65SV is Asiatic Russia, UA9
+	* RG65OB is Asiatic Russia, UA9 in CQ zone 16
+	* RG65TO is Asiatic Russia, UA9 in CQ zone 18, ITU zone 31
+	* RG65KK is Asiatic Russia, UA9 in CQ zone 18, ITU zone 32
+	* R65RKV is Asiatic Russia, UA9 in CQ zone 19, ITU zone 33
+
+    Removed Entities/Prefixes/Callsigns:
+
+	* EG2MKO in Canary Islands, EA8
+	* FO/F6BCW in Marquesas Islands, FO/m
+	* GB2AAW in Scotland, GM
+	* KC7MDT and KM6VRX in United States, K
+	* RJ2T/P in Asiatic Russia, UA9
