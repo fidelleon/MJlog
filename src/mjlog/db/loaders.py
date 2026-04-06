@@ -1,9 +1,17 @@
 """Data loaders for importing external data into database."""
-
+import csv
+import datetime
+import enum
+import io
+import re
 import zipfile
-import xml.etree.ElementTree as ET
+
+import feedparser
+import requests
+from bs4 import BeautifulSoup
 
 from mjlog.db.models import DXCCEntity
+from mjlog.db.session import get_session
 
 NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 
@@ -15,107 +23,70 @@ def col_letter_to_num(col_letter):
         result = result * 26 + (ord(char) - ord('A') + 1)
     return result - 1
 
+def get_big_cty():
+    """Fetches the big_cty.txt file from the ARRL website and returns a list of lines."""
+    # Use country-files feed to find the latest Big CTY URL
+    date_matcher = re.compile(r'^.*?\s(\d\d)\s.*?(\w+)\s(\d+)')
+    url: str = "https://www.country-files.com/feed/"
+    feed = feedparser.parse(url)
+    if feed.status != 200:
+        raise Exception(f"Failed to fetch feed: HTTP {feed.status}")
+    bigcty_data: dict| None = next((entry for entry in feed.entries if entry.title.startswith('Big CTY')), None)
+    if bigcty_data is None:
+        raise Exception("Big CTY entry not found in feed")
+    title = bigcty_data['title']
+    filename = title.split(' – ')[0]  # This is not a regular dash, but an en dash (U+2013)
+    print(filename)
+    matcher = date_matcher.match(title)
+    if not matcher:
+        raise Exception(f"Failed to parse date from title: {title}")
 
-def load_dxcc_from_xlsx(xlsx_path: str):
-    """Load DXCC entities from Excel file for updating existing entities.
+    groups = matcher.groups()
+    file_date = datetime.date(int(groups[2]), datetime.datetime.strptime(groups[1], '%B').month, int(groups[0]))
+    return file_date
+    bigcty_url: str = bigcty_data['link']
 
-    Args:
-        xlsx_path: Path to DXCC.xlsx file
+    # Now, request the Big CTY page to find the actual download link
+    response = requests.get(bigcty_url)
+    response.raise_for_status()  # Ensure we got a successful response
+    soup = BeautifulSoup(response.content, "html.parser")
+    tag = soup.find('a', text='[download]')
+    if tag is None:
+        raise Exception("Download link not found in Big CTY page")
 
-    Returns:
-        List of DXCCEntity objects
-    """
-    entities = []
+    # Now we hve the download link, let's fetch the zip file
+    bigcty_response = requests.get(tag['href'])
+    bigcty_response.raise_for_status()
+    buffer = io.BytesIO(bigcty_response.content)
 
-    try:
-        with zipfile.ZipFile(xlsx_path, "r") as zip_ref:
-            # Read shared strings (for cell references)
-            with zip_ref.open("xl/sharedStrings.xml") as strings_file:
-                strings_tree = ET.parse(strings_file)
-                strings_root = strings_tree.getroot()
-                strings = []
-                for t in strings_root.findall(f"{NS}si"):
-                    t_elem = t.find(f"{NS}t")
-                    if t_elem is not None:
-                        strings.append(t_elem.text)
+    with zipfile.ZipFile(buffer, 'r') as zf:
+        csv_data = zf.read("cty.csv")
 
-            # Read worksheet
-            with zip_ref.open("xl/worksheets/sheet1.xml") as sheet_file:
-                tree = ET.parse(sheet_file)
-                root = tree.getroot()
+    csv_file = csv.reader(io.StringIO(csv_data.decode('utf-8')))
+    session = get_session()
 
-            rows = root.findall(f".//{NS}row")
+    for line in csv_file:
+        cty_name = line[CtyLine.name.value]
+        # Query for DXCCEntity matching the cty_name
+        entity = session.query(DXCCEntity).filter(DXCCEntity.name == cty_name).first()
+        if entity:
+            entity.prefixes = line[CtyLine.prefixes.value][:-1]  # Remove trailing ';'
+        else:
+            print(f"Warning: No matching DXCCEntity found for {cty_name}")
 
-            # Skip header row, process data rows
-            for row in rows[1:]:
-                cells = row.findall(f"{NS}c")
+    session.commit()
 
-                # Build sparse array for this row
-                values = [None] * 13
-                for cell in cells:
-                    ref = cell.get("r")  # e.g., "A2", "B2"
-                    if ref:
-                        col_letter = ref.rstrip("0123456789")
-                        col_num = col_letter_to_num(col_letter)
-                        if col_num < 13:
-                            v_elem = cell.find(f"{NS}v")
-                            if v_elem is not None and v_elem.text:
-                                values[col_num] = v_elem.text
 
-                # Parse and create entity
-                try:
-                    prefix_idx = int(float(values[0]))
-                    dxcc_idx = int(float(values[1]))
-                    name_idx = int(float(values[2]))
-                    continent_idx = int(float(values[3]))
-                    prefixes_idx = int(float(values[8])) if values[8] else None
-
-                    entity = DXCCEntity(
-                        prefix=strings[prefix_idx],
-                        dxcc_name=strings[dxcc_idx],
-                        name=strings[name_idx],
-                        continent=strings[continent_idx],
-                        itu_zone=(
-                            int(float(values[4])) if values[4] else None
-                        ),
-                        latitude=(
-                            float(values[5]) if values[5] else None
-                        ),
-                        longitude=(
-                            float(values[6]) if values[6] else None
-                        ),
-                        utc_offset=(
-                            int(float(values[7])) if values[7] else None
-                        ),
-                        prefixes=(
-                            strings[prefixes_idx]
-                            if prefixes_idx is not None
-                            else None
-                        ),
-                        cq_zone_id=(
-                            int(float(values[9])) if values[9] else None
-                        ),
-                        entity_code=(
-                            int(float(values[10])) if values[10] else None
-                        ),
-                        special_use=(
-                            bool(int(float(values[11])))
-                            if values[11]
-                            else False
-                        ),
-                        deleted=(
-                            bool(int(float(values[12])))
-                            if values[12]
-                            else False
-                        ),
-                    )
-                    entities.append(entity)
-                except (IndexError, ValueError, TypeError) as e:
-                    print(f"Error parsing row: {e}")
-                    continue
-
-    except Exception as e:
-        print(f"Error loading DXCC data: {e}")
-        raise
-
-    return entities
+class CtyLine(enum.Enum):
+    """Enum for column indices in cty.csv from Big CTY."""
+    # ['XX9', 'Macao', '152', 'AS', '24', '44', '22.10', '-113.50', '-8.0', 'XX9;']
+    prefix = 0
+    name = 1
+    entity_code = 2
+    continent = 3
+    cq_zone_id = 4
+    itu_zone = 5
+    latitude = 6
+    longitude = 7
+    utc_offset = 8
+    prefixes = 9
