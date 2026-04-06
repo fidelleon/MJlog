@@ -4,12 +4,25 @@ from PySide6.QtWidgets import (
     QWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QHBoxLayout,
     QComboBox, QLabel
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QEvent, QObject
 from PySide6.QtGui import QCloseEvent
 
 from mjlog.db.session import get_session
 from mjlog.db.models import DXCCEntity
 from mjlog.gui.settings import load_window_state, save_window_state
+
+
+class _SubWindowEventFilter(QObject):
+    """Event filter installed on the QMdiSubWindow to track move/resize."""
+
+    def __init__(self, on_geometry_changed):
+        super().__init__()
+        self._on_geometry_changed = on_geometry_changed
+
+    def eventFilter(self, watched, event) -> bool:
+        if event.type() in (QEvent.Type.Move, QEvent.Type.Resize):
+            self._on_geometry_changed(watched.geometry())
+        return False  # never consume the event
 
 
 class CountriesWindow(QWidget):
@@ -23,6 +36,9 @@ class CountriesWindow(QWidget):
         self.setWindowTitle("DXCC Countries")
 
         self.all_entities = []
+        self._mdi_sub_window = None
+        self._sub_window_event_filter = None
+        self._current_geometry = None
 
         main_layout = QVBoxLayout(self)
 
@@ -112,25 +128,41 @@ class CountriesWindow(QWidget):
         # Store geometry for later use after window is added to MDI area
         self.saved_geometry = state.get("geometry", None)
 
+    def _on_subwindow_geometry_changed(self, geometry) -> None:
+        """Called whenever the MDI subwindow is moved or resized."""
+        self._current_geometry = {
+            "x": geometry.x(),
+            "y": geometry.y(),
+            "width": geometry.width(),
+            "height": geometry.height(),
+        }
+
     def show(self) -> None:
-        """Override show to apply geometry after window is added to MDI."""
+        """Override show to apply geometry and install event filter."""
         super().show()
 
-        # Store a direct reference to the QMdiSubWindow for use in save_state
         self._mdi_sub_window = self.parent()
 
-        if hasattr(self, "saved_geometry") and self.saved_geometry:
-            if self._mdi_sub_window is not None:
+        if self._mdi_sub_window is not None:
+            # Install event filter to track move/resize in real time
+            self._sub_window_event_filter = _SubWindowEventFilter(
+                self._on_subwindow_geometry_changed
+            )
+            self._mdi_sub_window.installEventFilter(
+                self._sub_window_event_filter
+            )
+
+            # Apply saved geometry
+            if self.saved_geometry:
                 geom = self.saved_geometry
                 self._mdi_sub_window.setGeometry(
                     geom["x"], geom["y"],
                     geom["width"], geom["height"]
                 )
-        else:
-            if self._mdi_sub_window is not None:
-                self._mdi_sub_window.setGeometry(0, 0, 900, 600)
             else:
-                self.setGeometry(0, 0, 900, 600)
+                self._mdi_sub_window.setGeometry(0, 0, 900, 600)
+        else:
+            self.setGeometry(0, 0, 900, 600)
 
     def apply_filters(self) -> None:
         """Filter table based on dropdown selections."""
@@ -194,21 +226,14 @@ class CountriesWindow(QWidget):
 
     def save_state(self) -> None:
         """Save window geometry and UI state to persistent settings."""
-        # Use the stored QMdiSubWindow reference (set in show()) for reliable
-        # geometry — self.parent() may be unreliable during app teardown
-        sub_window = getattr(self, "_mdi_sub_window", None) or self.parent()
-        if sub_window is not None:
-            geometry = sub_window.geometry()
-        else:
-            geometry = self.geometry()
+        # Use the geometry tracked via the event filter (updated on every
+        # move/resize), which is always accurate regardless of teardown state
+        geometry = self._current_geometry or self.saved_geometry or {
+            "x": 0, "y": 0, "width": 900, "height": 600
+        }
 
         state = {
-            "geometry": {
-                "x": geometry.x(),
-                "y": geometry.y(),
-                "width": geometry.width(),
-                "height": geometry.height(),
-            },
+            "geometry": geometry,
             "special_use_index": self.combo_special_use.currentIndex(),
             "deleted_index": self.combo_deleted.currentIndex(),
             "column_widths": {
