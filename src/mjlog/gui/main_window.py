@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QMessageBox,
 )
+from PySide6.QtGui import QCloseEvent
 
 from mjlog.gui.ui.main_window_ui import Ui_MainWindow
 
@@ -27,6 +28,14 @@ class MainWindow(QMainWindow):
         self.ui.actionViewCountries.triggered.connect(
             self.on_view_countries_requested
         )
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Close all MDI child windows first so they can save their state."""
+        for sub_window in self.ui.mdiArea.subWindowList():
+            widget = sub_window.widget()
+            if widget is not None and hasattr(widget, "save_state"):
+                widget.save_state()
+        super().closeEvent(event)
 
     def on_init_db_requested(self):
         """Handle Initialize database action."""

@@ -4,12 +4,25 @@ from PySide6.QtWidgets import (
     QWidget, QTableWidget, QTableWidgetItem, QVBoxLayout, QHBoxLayout,
     QComboBox, QLabel
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QEvent, QObject
 from PySide6.QtGui import QCloseEvent
 
 from mjlog.db.session import get_session
 from mjlog.db.models import DXCCEntity
 from mjlog.gui.settings import load_window_state, save_window_state
+
+
+class _SubWindowEventFilter(QObject):
+    """Event filter on QMdiSubWindow: saves geometry on mouse release."""
+
+    def __init__(self, on_released):
+        super().__init__()
+        self._on_released = on_released
+
+    def eventFilter(self, watched, event) -> bool:
+        if event.type() == QEvent.Type.NonClientAreaMouseButtonRelease:
+            self._on_released(watched.geometry())
+        return False  # never consume the event
 
 
 class CountriesWindow(QWidget):
@@ -23,7 +36,9 @@ class CountriesWindow(QWidget):
         self.setWindowTitle("DXCC Countries")
 
         self.all_entities = []
-
+        self._mdi_sub_window = None
+        self._sub_window_event_filter = None
+        self._current_geometry = None
         main_layout = QVBoxLayout(self)
 
         # Create filter controls
@@ -112,29 +127,47 @@ class CountriesWindow(QWidget):
         # Store geometry for later use after window is added to MDI area
         self.saved_geometry = state.get("geometry", None)
 
+    def _on_subwindow_geometry_changed(self, geometry) -> None:
+        """Called when user releases mouse after dragging/resizing."""
+        self._current_geometry = {
+            "x": geometry.x(),
+            "y": geometry.y(),
+            "width": geometry.width(),
+            "height": geometry.height(),
+        }
+        self.save_state()
+
     def show(self) -> None:
-        """Override show to apply geometry after window is added to MDI."""
+        """Override show to apply geometry and install event filter."""
         super().show()
 
-        # Now that the window is added to MDI area, we can access its subwindow
-        # and apply the saved geometry
-        if hasattr(self, "saved_geometry") and self.saved_geometry:
-            # Get the QMdiSubWindow wrapper
-            sub_window = self.parent()
-            if sub_window is not None:
+        # Find our QMdiSubWindow via the MDI area (more reliable than parent())
+        self._mdi_sub_window = None
+        for sw in self.mdi_area.subWindowList():
+            if sw.widget() is self:
+                self._mdi_sub_window = sw
+                break
+
+        if self._mdi_sub_window is not None:
+            # Install event filter to catch mouse release after drag/resize
+            self._sub_window_event_filter = _SubWindowEventFilter(
+                self._on_subwindow_geometry_changed
+            )
+            self._mdi_sub_window.installEventFilter(
+                self._sub_window_event_filter
+            )
+
+            # Apply saved geometry
+            if self.saved_geometry:
                 geom = self.saved_geometry
-                sub_window.setGeometry(
+                self._mdi_sub_window.setGeometry(
                     geom["x"], geom["y"],
                     geom["width"], geom["height"]
                 )
-        else:
-            # Set default geometry if no saved state
-            sub_window = self.parent()
-            if sub_window is not None:
-                sub_window.setGeometry(0, 0, 900, 600)
             else:
-                # Fallback if not in MDI area yet
-                self.setGeometry(0, 0, 900, 600)
+                self._mdi_sub_window.setGeometry(0, 0, 900, 600)
+        else:
+            self.setGeometry(0, 0, 900, 600)
 
     def apply_filters(self) -> None:
         """Filter table based on dropdown selections."""
@@ -196,22 +229,14 @@ class CountriesWindow(QWidget):
         # Re-enable sorting after all data is loaded
         self.table.setSortingEnabled(True)
 
-    def closeEvent(self, event: QCloseEvent) -> None:
-        """Save window state before closing."""
-        # Get the QMdiSubWindow wrapper to get actual position
-        sub_window = self.parent()
-        if sub_window is not None:
-            geometry = sub_window.geometry()
-        else:
-            geometry = self.geometry()
+    def save_state(self) -> None:
+        """Save window geometry and UI state to persistent settings."""
+        geometry = self._current_geometry or self.saved_geometry or {
+            "x": 0, "y": 0, "width": 900, "height": 600
+        }
 
         state = {
-            "geometry": {
-                "x": geometry.x(),
-                "y": geometry.y(),
-                "width": geometry.width(),
-                "height": geometry.height(),
-            },
+            "geometry": geometry,
             "special_use_index": self.combo_special_use.currentIndex(),
             "deleted_index": self.combo_deleted.currentIndex(),
             "column_widths": {
@@ -220,4 +245,8 @@ class CountriesWindow(QWidget):
             },
         }
         save_window_state(self.WINDOW_NAME, state)
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        """Save state before closing."""
+        self.save_state()
         super().closeEvent(event)
