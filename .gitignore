@@ -14,3 +14,6 @@ src/mjlog/gui/ui/*_ui.py
 
 # User files
 mjlog.toml
+
+# Test temp files
+.coverage
