@@ -26,7 +26,78 @@ packages = ["mjlog"]
 [dependency-groups]
 dev = [
     "alembic>=1.13.0",
+    "black>=23.0.0",
+    "docstring-parser>=0.16",
+    "factory-boy>=3.3.0",
     "flake8>=7.3.0",
+    "hypothesis>=6.90.0",
+    "isort>=5.13.0",
+    "mypy>=1.7.0",
     "pre-commit>=4.5.1",
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.12.0",
+    "pytest-qt>=4.2.0",
+    "pytest-xdist>=3.5.0",
+    "responses>=0.24.0",
     "ruff>=0.15.9",
+    "sqlalchemy-utils>=0.41.0",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+addopts = """
+    --strict-markers
+    --strict-config
+    --cov=src/mjlog
+    --cov-report=html
+    --cov-report=term-missing
+    --cov-fail-under=50
+    -v
+"""
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "gui: marks tests as GUI tests",
+    "db: marks tests as database tests",
+]
+
+[tool.coverage.run]
+branch = true
+omit = [
+    "*/site-packages/*",
+    "*/distutils/*",
+    "src/mjlog/gui/ui/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\(Protocol\\):",
+]
+precision = 2
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
