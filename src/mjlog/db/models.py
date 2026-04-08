@@ -469,6 +469,12 @@ class HRDQso(Base):
             f"call='{self.col_call}', freq={self.col_freq})>"
         )
 
+    @staticmethod
+    def get_hrd_qsos():
+        """Fetch all QSOs from the HRD database."""
+        session = get_session(db="hrd")
+        return session.query(HRDQso).all()
+
 
 class CtyLine(enum.Enum):
     """Enum for column indices in cty.csv from Big CTY."""
