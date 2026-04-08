@@ -364,6 +364,7 @@ class HRDQso(Base):
     col_freq = Column('COL_FREQ', Integer)
     col_freq_rx = Column('COL_FREQ_RX', Integer)
     col_mode = Column('COL_MODE', String(16), index=True)
+    col_band = Column('COL_BAND', String(10), index=True)
     col_submode = Column('COL_SUBMODE', String(16))
     col_rst_sent = Column('COL_RST_SENT', String(32))
     col_rst_rcvd = Column('COL_RST_RCVD', String(32))
@@ -466,14 +467,15 @@ class HRDQso(Base):
         time_str = self.col_time_on.isoformat() if self.col_time_on else 'None'
         return (
             f"<HRDQso(date={date_str}, time={time_str}, "
-            f"call='{self.col_call}', freq={self.col_freq})>"
+            f"call='{self.col_call}', band={self.col_band}, "
+            f"mode='{self.col_mode}')>"
         )
 
     @staticmethod
     def get_hrd_qsos():
         """Fetch all QSOs from the HRD database."""
         session = get_session(db="hrd")
-        return session.query(HRDQso).all()
+        return session.query(HRDQso).filter(HRDQso.col_call == 'CT3MD').all()
 
 
 class CtyLine(enum.Enum):
