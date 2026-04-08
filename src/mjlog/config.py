@@ -23,3 +23,12 @@ def get_database_url() -> str:
     if not db_url:
         raise ValueError("DATABASE_URL not set in mjlog.env")
     return db_url
+
+
+def get_hrd_url() -> str:
+    """Get MySQL connection URL from environment."""
+    load_config()
+    db_url = os.getenv("HRD_DATABASE_URL")
+    if not db_url:
+        raise ValueError("HRD_DATABASE_URL not set in mjlog.env")
+    return db_url
