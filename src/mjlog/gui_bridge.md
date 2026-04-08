@@ -101,6 +101,7 @@ GUI will **not** duplicate database logic. Instead:
 from mjlog.db.models import Entry
 from mjlog.db.session import get_session
 
+
 class MainWindow(QMainWindow):
     def handle_add_entry(self, title: str, content: str):
         """Reuse the same database layer as CLI."""
