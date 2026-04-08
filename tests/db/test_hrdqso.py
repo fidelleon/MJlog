@@ -28,16 +28,16 @@ class TestHRDQsoModel:
     def test_hrdqso_model_defined(self):
         """Verify HRDQso model is properly defined."""
         assert HRDQso.__tablename__ == "table_hrd_contacts_v07"
-        assert hasattr(HRDQso, "col_primary_key")
-        assert hasattr(HRDQso, "col_qso_date")
-        assert hasattr(HRDQso, "col_call")
+        assert hasattr(HRDQso, "primary_key")
+        assert hasattr(HRDQso, "qso_date")
+        assert hasattr(HRDQso, "call")
 
     def test_hrdqso_columns_exist(self):
         """Verify key columns are mapped."""
         required_columns = [
-            'col_primary_key', 'col_qso_date', 'col_time_on',
-            'col_call', 'col_freq', 'col_mode', 'col_dxcc',
-            'col_country', 'col_lotw_qsl_rcvd'
+            'primary_key', 'qso_date', 'time_on',
+            'call', 'freq', 'mode', 'dxcc',
+            'country', 'lotw_qsl_rcvd'
         ]
         for col in required_columns:
             assert hasattr(HRDQso, col), f"Missing column: {col}"
@@ -62,7 +62,7 @@ class TestHRDQsoModel:
         """Query QSOs filtered by mode."""
         with Session(hrd_engine) as session:
             cw_qsos = session.query(HRDQso).filter(
-                HRDQso.col_mode == 'CW'
+                HRDQso.mode == 'CW'
             ).count()
             assert cw_qsos >= 0
 
@@ -71,18 +71,18 @@ class TestHRDQsoModel:
         with Session(hrd_engine) as session:
             qso = session.query(HRDQso).first()
             assert qso is not None
-            assert qso.col_primary_key is not None
-            assert qso.col_call is not None
+            assert qso.primary_key is not None
+            assert qso.call is not None
 
     def test_query_recent_qsos(self, hrd_engine):
         """Query recent QSOs ordered by date."""
         with Session(hrd_engine) as session:
             recent = session.query(HRDQso).order_by(
-                HRDQso.col_qso_date.desc()
+                HRDQso.qso_date.desc()
             ).limit(10).all()
             assert len(recent) > 0
-            if recent[0].col_qso_date:
-                assert recent[0].col_qso_date is not None
+            if recent[0].qso_date:
+                assert recent[0].qso_date is not None
 
     def test_hrdqso_repr(self, hrd_engine):
         """Test HRDQso repr method."""
@@ -97,7 +97,7 @@ class TestHRDQsoModel:
         with Session(hrd_engine) as session:
             # Query for QSOs with a country value
             qsos = session.query(HRDQso).filter(
-                HRDQso.col_country.isnot(None)
+                HRDQso.country.isnot(None)
             ).limit(5).all()
             assert len(qsos) >= 0
 
@@ -105,8 +105,8 @@ class TestHRDQsoModel:
         """Query QSOs with valid coordinates."""
         with Session(hrd_engine) as session:
             qsos = session.query(HRDQso).filter(
-                HRDQso.col_lat.isnot(None),
-                HRDQso.col_lon.isnot(None)
+                HRDQso.lat.isnot(None),
+                HRDQso.lon.isnot(None)
             ).limit(10).all()
             assert isinstance(qsos, list)
 
@@ -114,6 +114,6 @@ class TestHRDQsoModel:
         """Query LoTW confirmed QSOs."""
         with Session(hrd_engine) as session:
             confirmed = session.query(HRDQso).filter(
-                HRDQso.col_lotw_qsl_rcvd == 'Y'
+                HRDQso.lotw_qsl_rcvd == 'Y'
             ).count()
             assert confirmed >= 0

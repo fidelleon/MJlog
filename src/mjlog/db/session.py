@@ -13,7 +13,7 @@ def get_engine(db: str = "main"):
     """Get or create SQLAlchemy engine."""
     global _engine
     if _engine is None:
-        db_url = get_database_url() if str == "main" else get_hrd_url()
+        db_url = get_database_url() if db == "main" else get_hrd_url()
         _engine = create_engine(db_url, echo=False)
     return _engine
 
