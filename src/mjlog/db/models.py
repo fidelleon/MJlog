@@ -15,11 +15,13 @@ from sqlalchemy import (
     CheckConstraint,
     Column,
     Date,
+    DateTime,
     Float,
     ForeignKey,
     Integer,
     Numeric,
     String,
+    Text,
     Time,
     UniqueConstraint,
 )
@@ -327,6 +329,46 @@ class Membership(Base):
 
     def __repr__(self):
         return f"<Membership(callsign='{self.callsign}')>"
+
+
+class CacheEntry(Base):
+    """Generic key-value cache store backed by PostgreSQL.
+
+    Supports namespaced entries with TTL-based expiry.
+    Used for caching external API responses such as QRZ session keys and
+    callsign lookups to reduce round-trips to remote services.
+
+    Uniqueness is enforced on (namespace, key).
+    """
+
+    __tablename__ = "cache_entries"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    namespace = Column(String(64), nullable=False, index=True)
+    key = Column(String(255), nullable=False, index=True)
+    value = Column(Text, nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.datetime.now(datetime.timezone.utc),
+    )
+
+    __table_args__ = (
+        UniqueConstraint('namespace', 'key', name='uq_cache_namespace_key'),
+    )
+
+    def __repr__(self):
+        return (
+            f"<CacheEntry(namespace='{self.namespace}', key='{self.key}', "
+            f"expires_at={self.expires_at})>"
+        )
+
+    def is_expired(self) -> bool:
+        """Return True if this cache entry has passed its TTL."""
+        if self.expires_at is None:
+            return False
+        return datetime.datetime.now(datetime.timezone.utc) > self.expires_at
 
 
 class HRDQso(Base):

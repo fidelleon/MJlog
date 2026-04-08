@@ -1,14 +1,9 @@
 from logging.config import fileConfig
-import sys
-from pathlib import Path
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
-
-# Add src to path so imports work
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from mjlog.db.models import Base
 from mjlog.config import get_database_url
@@ -25,6 +20,18 @@ if config.config_file_name is not None:
 # add your model's MetaData object here
 # for 'autogenerate' support
 target_metadata = Base.metadata
+
+# Tables that live on external databases (e.g., remote MySQL) and must not be
+# managed by Alembic migrations targeting the primary PostgreSQL database.
+_EXCLUDED_TABLES = {"table_hrd_contacts_v07"}
+
+
+def include_object(object, name, type_, reflected, compare_to):
+    """Exclude remote/external tables from autogenerate comparisons."""
+    if type_ == "table" and name in _EXCLUDED_TABLES:
+        return False
+    return True
+
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -50,6 +57,7 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -65,10 +73,10 @@ def run_migrations_online() -> None:
     """
     # Get the database URL from environment configuration
     url = get_database_url()
-    
+
     configuration = config.get_section(config.config_ini_section, {})
     configuration["sqlalchemy.url"] = url
-    
+
     connectable = engine_from_config(
         configuration,
         prefix="sqlalchemy.",
@@ -77,7 +85,9 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            include_object=include_object,
         )
 
         with context.begin_transaction():
